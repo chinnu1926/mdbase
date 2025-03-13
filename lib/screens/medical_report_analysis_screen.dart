@@ -3,6 +3,8 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'notification_settings_screen.dart';
+import 'profile_screen.dart';
+import 'home_screen.dart';
 
 class MedicalReportAnalysisScreen extends StatefulWidget {
   const MedicalReportAnalysisScreen({Key? key}) : super(key: key);
@@ -182,7 +184,20 @@ class _MedicalReportAnalysisScreenState
           ),
         ],
         onTap: (index) {
-          if (index == 2) {
+          if (index == 0) {
+            // Home tab
+            Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(builder: (context) => const HomeScreen()),
+              (route) => false,
+            );
+          } else if (index == 1) {
+            // Profile tab
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const ProfileScreen()),
+            );
+          } else if (index == 2) {
             Navigator.push(
               context,
               MaterialPageRoute(

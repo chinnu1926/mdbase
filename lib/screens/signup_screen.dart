@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:mbase/services/auth_service.dart';
+import 'home_screen.dart';
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({Key? key}) : super(key: key);
@@ -15,6 +18,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
   final _passwordController = TextEditingController();
   final _mobileController = TextEditingController();
   final _dobController = TextEditingController();
+  final AuthService _authService = AuthService();
 
   @override
   void dispose() {
@@ -24,6 +28,37 @@ class _SignUpScreenState extends State<SignUpScreen> {
     _mobileController.dispose();
     _dobController.dispose();
     super.dispose();
+  }
+
+  void _signUp() async {
+    User? user = await _authService.signUpWithEmail(
+      _emailController.text.trim(),
+      _passwordController.text.trim(),
+    );
+    if (user != null) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const HomeScreen()),
+      );
+    } else {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Signup failed!")));
+    }
+  }
+
+  void _googleSignUp() async {
+    User? user = await _authService.signInWithGoogle();
+    if (user != null) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const HomeScreen()),
+      );
+    } else {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Google Sign-Up failed!")));
+    }
   }
 
   @override
@@ -74,10 +109,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       borderRadius: BorderRadius.circular(12),
                       borderSide: BorderSide.none,
                     ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 16,
-                    ),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -91,10 +122,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: BorderSide.none,
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 16,
                     ),
                     suffixIcon: IconButton(
                       icon: Icon(
@@ -116,16 +143,11 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   controller: _emailController,
                   decoration: InputDecoration(
                     labelText: 'Email',
-                    hintText: 'example@example.com',
                     filled: true,
                     fillColor: Colors.blue.shade50,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: BorderSide.none,
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 16,
                     ),
                   ),
                 ),
@@ -140,38 +162,14 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       borderRadius: BorderRadius.circular(12),
                       borderSide: BorderSide.none,
                     ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 16,
-                    ),
                   ),
                 ),
                 const SizedBox(height: 16),
-                TextField(
-                  controller: _dobController,
-                  decoration: InputDecoration(
-                    labelText: 'Date Of Birth',
-                    hintText: 'DD / MM / YYYY',
-                    filled: true,
-                    fillColor: Colors.blue.shade50,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 16,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 32),
                 SizedBox(
                   width: double.infinity,
                   height: 48,
                   child: ElevatedButton(
-                    onPressed: () {
-                      // TODO: Implement sign up
-                    },
+                    onPressed: _signUp,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.blueAccent,
                       shape: RoundedRectangleBorder(
@@ -189,27 +187,11 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   ),
                 ),
                 const SizedBox(height: 24),
-                const Center(
-                  child: Text(
-                    'or sign up with',
-                    style: TextStyle(color: Colors.grey, fontSize: 14),
-                  ),
-                ),
-                const SizedBox(height: 24),
                 SizedBox(
                   width: double.infinity,
                   height: 48,
                   child: OutlinedButton.icon(
-                    onPressed: () {
-                      // TODO: Implement Google sign up
-                    },
-                    style: OutlinedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      side: const BorderSide(color: Colors.white),
-                    ),
+                    onPressed: _googleSignUp,
                     icon: const FaIcon(
                       FontAwesomeIcons.google,
                       size: 20,
@@ -231,13 +213,11 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       const Text(
-                        'already have an account? ',
+                        'Already have an account? ',
                         style: TextStyle(color: Colors.grey),
                       ),
                       TextButton(
-                        onPressed: () {
-                          Navigator.pop(context);
-                        },
+                        onPressed: () => Navigator.pop(context),
                         child: const Text(
                           'Log in',
                           style: TextStyle(

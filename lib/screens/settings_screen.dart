@@ -3,6 +3,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'profile_screen.dart';
 import 'general_settings_screen.dart';
 import 'notification_settings_screen.dart';
+import 'home_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({Key? key}) : super(key: key);
@@ -94,7 +95,14 @@ class SettingsScreen extends StatelessWidget {
           ),
         ],
         onTap: (index) {
-          if (index == 2) {
+          if (index == 0) {
+            // Home tab
+            Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(builder: (context) => const HomeScreen()),
+              (route) => false,
+            );
+          } else if (index == 2) {
             Navigator.push(
               context,
               MaterialPageRoute(

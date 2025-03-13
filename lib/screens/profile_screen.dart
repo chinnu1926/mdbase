@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'notification_settings_screen.dart';
+import 'home_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({Key? key}) : super(key: key);
@@ -89,6 +90,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   fontSize: 20,
                   fontWeight: FontWeight.w600,
                 ),
+              ),
+            ),
+            Positioned(
+              right: 0,
+              child: IconButton(
+                icon: Icon(
+                  isEditing ? Icons.save : Icons.edit,
+                  color: Colors.blue,
+                  size: 24,
+                ),
+                onPressed: () {
+                  if (isEditing) {
+                    _handleSave();
+                  } else {
+                    setState(() {
+                      isEditing = true;
+                    });
+                  }
+                },
               ),
             ),
           ],
@@ -195,7 +215,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         backgroundColor: Colors.blueAccent,
         selectedItemColor: Colors.white,
         unselectedItemColor: Colors.white.withOpacity(0.7),
-        currentIndex: 2,
+        currentIndex: 1,
         items: const [
           BottomNavigationBarItem(
             icon: FaIcon(FontAwesomeIcons.house, size: 20),
@@ -211,7 +231,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ],
         onTap: (index) {
-          if (index == 2) {
+          if (index == 0) {
+            Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(builder: (context) => const HomeScreen()),
+              (route) => false,
+            );
+          } else if (index == 2) {
             Navigator.push(
               context,
               MaterialPageRoute(
