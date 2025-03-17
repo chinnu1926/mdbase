@@ -17,7 +17,12 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isPasswordVisible = false;
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  final GoogleSignIn _googleSignIn = GoogleSignIn(scopes: ['email']);
+  final GoogleSignIn _googleSignIn = GoogleSignIn(
+    scopes: ['email', 'https://www.googleapis.com/auth/userinfo.profile'],
+    clientId:
+        '100184804249-jqib43eral9bqk3t8vuq4fa7pjqecvo5.apps.googleusercontent.com',
+    signInOption: SignInOption.standard,
+  );
 
   @override
   void dispose() {
