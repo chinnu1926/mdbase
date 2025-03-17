@@ -1,11 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'notification_settings_screen.dart';
 import 'password_manager_screen.dart';
 import 'welcome_screen.dart';
 
 class GeneralSettingsScreen extends StatelessWidget {
   const GeneralSettingsScreen({Key? key}) : super(key: key);
+
+  Future<void> _handleLogout(BuildContext context) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.clear(); // Clear all stored data including login state
+
+    if (context.mounted) {
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => const WelcomeScreen()),
+        (route) => false,
+      );
+    }
+  }
 
   void _showLogoutDialog(BuildContext context) {
     showDialog(
@@ -30,7 +44,7 @@ class GeneralSettingsScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
                 const Text(
-                  'are you sure you want to log out?',
+                  'Are you sure you want to log out?',
                   style: TextStyle(fontSize: 16, color: Colors.grey),
                 ),
                 const SizedBox(height: 24),
@@ -60,15 +74,7 @@ class GeneralSettingsScreen extends StatelessWidget {
                     const SizedBox(width: 16),
                     Expanded(
                       child: ElevatedButton(
-                        onPressed: () {
-                          Navigator.pushAndRemoveUntil(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const WelcomeScreen(),
-                            ),
-                            (route) => false,
-                          );
-                        },
+                        onPressed: () => _handleLogout(context),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.blue,
                           shape: RoundedRectangleBorder(

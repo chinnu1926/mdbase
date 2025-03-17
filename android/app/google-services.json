@@ -1,54 +1,54 @@
 {
-    "project_info": {
-      "project_number": "100184804249",
-      "project_id": "medibase-b0cc1",
-      "storage_bucket": "medibase-b0cc1.firebasestorage.app"
-    },
-    "client": [
-      {
-        "client_info": {
-          "mobilesdk_app_id": "1:100184804249:android:e9a2e7304c33ee0163a108",
-          "android_client_info": {
-            "package_name": "com.example.mbase"
+  "project_info": {
+    "project_number": "100184804249",
+    "project_id": "medibase-b0cc1",
+    "storage_bucket": "medibase-b0cc1.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:100184804249:android:e9a2e7304c33ee0163a108",
+        "android_client_info": {
+          "package_name": "com.example.mbase"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "100184804249-jqib43eral9bqk3t8vuq4fa7pjqecvo5.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.mbase",
+            "certificate_hash": "d51876f73297c9df95fdf9b2586ef4fe3532a35a"
           }
         },
-        "oauth_client": [
-          {
-            "client_id": "100184804249-jqib43eral9bqk3t8vuq4fa7pjqecvo5.apps.googleusercontent.com",
-            "client_type": 1,
-            "android_info": {
-              "package_name": "com.example.mbase",
-              "certificate_hash": "d51876f73297c9df95fdf9b2586ef4fe3532a35a"
-            }
-          },
-          {
-            "client_id": "100184804249-gi7nfu909nhoqup53ljc6kaei9blc30r.apps.googleusercontent.com",
-            "client_type": 3
-          }
-        ],
-        "api_key": [
-          {
-            "current_key": "AIzaSyDVHsOUcTzI3j4RmbE01z-K1QkBCqYf-ak"
-          }
-        ],
-        "services": {
-          "appinvite_service": {
-            "other_platform_oauth_client": [
-              {
-                "client_id": "100184804249-gi7nfu909nhoqup53ljc6kaei9blc30r.apps.googleusercontent.com",
-                "client_type": 3
-              },
-              {
-                "client_id": "100184804249-5uk4vp7fv1gftle58p47skthsfh6jpoa.apps.googleusercontent.com",
-                "client_type": 2,
-                "ios_info": {
-                  "bundle_id": "com.example.mbase"
-                }
+        {
+          "client_id": "100184804249-gi7nfu909nhoqup53ljc6kaei9blc30r.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDVHsOUcTzI3j4RmbE01z-K1QkBCqYf-ak"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "100184804249-gi7nfu909nhoqup53ljc6kaei9blc30r.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "100184804249-5uk4vp7fv1gftle58p47skthsfh6jpoa.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.mbase"
               }
-            ]
-          }
+            }
+          ]
         }
       }
-    ],
-    "configuration_version": "1"
-  }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:mbase/services/auth_service.dart';
 import 'home_screen.dart';
 import 'signup_screen.dart';
 
@@ -16,7 +17,7 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isPasswordVisible = false;
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  final AuthService _authService = AuthService();
+  final GoogleSignIn _googleSignIn = GoogleSignIn(scopes: ['email']);
 
   @override
   void dispose() {
@@ -25,34 +26,95 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  void _login() async {
-    User? user = await _authService.loginWithEmail(
-      _emailController.text.trim(),
-      _passwordController.text.trim(),
-    );
-    if (user != null) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const HomeScreen()),
+  Future<void> _handleGoogleSignIn() async {
+    try {
+      // Trigger the authentication flow
+      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+      print('Google Sign-In initiated');
+
+      if (googleUser == null) {
+        print('Google Sign-In was cancelled by user');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Google Sign-In was cancelled'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+        return;
+      }
+
+      print('Google Sign-In successful: ${googleUser.email}');
+
+      // Obtain the auth details from the request
+      final GoogleSignInAuthentication googleAuth =
+          await googleUser.authentication;
+      print('Got Google auth details');
+
+      // Create a new credential
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
       );
-    } else {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("Login failed!")));
+
+      // Sign in to Firebase with the Google credential
+      final UserCredential userCredential = await FirebaseAuth.instance
+          .signInWithCredential(credential);
+      final User? user = userCredential.user;
+      print('Firebase authentication successful: ${user?.email}');
+
+      if (user != null) {
+        // Save login state
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('isLoggedIn', true);
+        await prefs.setString('userEmail', user.email ?? '');
+
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const HomeScreen()),
+          );
+        }
+      }
+    } catch (error) {
+      print('Google Sign-In error: $error');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Google Sign-In failed: ${error.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
-  void _googleSignIn() async {
-    User? user = await _authService.signInWithGoogle();
-    if (user != null) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const HomeScreen()),
-      );
+  Future<void> _handleLogin() async {
+    // Here you would typically validate credentials with your backend
+    // For this example, we'll just check if fields are not empty
+    if (_emailController.text.isNotEmpty &&
+        _passwordController.text.isNotEmpty) {
+      // Save login state
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('isLoggedIn', true);
+      await prefs.setString('userEmail', _emailController.text);
+
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const HomeScreen()),
+        );
+      }
     } else {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("Google Sign-In failed!")));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please fill in all fields'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -66,46 +128,28 @@ class _LoginScreenState extends State<LoginScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(height: 16),
-              Stack(
-                alignment: Alignment.center,
-                children: [
-                  Positioned(
-                    left: 0,
-                    child: IconButton(
-                      icon: const Icon(
-                        Icons.arrow_back_ios,
-                        color: Colors.blue,
-                      ),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                  ),
-                  const Center(
-                    child: Text(
-                      'Log In',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.blue,
-                      ),
-                    ),
-                  ),
-                ],
+              const SizedBox(height: 40),
+              const Text(
+                'Welcome Back!',
+                style: TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.blue,
+                ),
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 8),
+              const Text(
+                'Sign in to continue',
+                style: TextStyle(fontSize: 16, color: Colors.grey),
+              ),
+              const SizedBox(height: 40),
               TextField(
                 controller: _emailController,
                 decoration: InputDecoration(
-                  labelText: 'Email or Mobile Number',
-                  filled: true,
-                  fillColor: Colors.blue.shade50,
+                  labelText: 'Email',
+                  prefixIcon: const Icon(Icons.email_outlined),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 16,
                   ),
                 ),
               ),
@@ -115,22 +159,12 @@ class _LoginScreenState extends State<LoginScreen> {
                 obscureText: !_isPasswordVisible,
                 decoration: InputDecoration(
                   labelText: 'Password',
-                  filled: true,
-                  fillColor: Colors.blue.shade50,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 16,
-                  ),
+                  prefixIcon: const Icon(Icons.lock_outline),
                   suffixIcon: IconButton(
                     icon: Icon(
                       _isPasswordVisible
                           ? Icons.visibility_off
                           : Icons.visibility,
-                      color: Colors.grey,
                     ),
                     onPressed: () {
                       setState(() {
@@ -138,15 +172,8 @@ class _LoginScreenState extends State<LoginScreen> {
                       });
                     },
                   ),
-                ),
-              ),
-              Align(
-                alignment: Alignment.centerRight,
-                child: TextButton(
-                  onPressed: () {}, // TODO: Implement forgot password
-                  child: const Text(
-                    'Forgot Password?',
-                    style: TextStyle(color: Colors.blue, fontSize: 14),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
                   ),
                 ),
               ),
@@ -155,7 +182,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 width: double.infinity,
                 height: 48,
                 child: ElevatedButton(
-                  onPressed: _login,
+                  onPressed: _handleLogin,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.blueAccent,
                     shape: RoundedRectangleBorder(
@@ -184,9 +211,10 @@ class _LoginScreenState extends State<LoginScreen> {
                 width: double.infinity,
                 height: 48,
                 child: OutlinedButton.icon(
-                  onPressed: _googleSignIn,
+                  onPressed: _handleGoogleSignIn,
                   style: OutlinedButton.styleFrom(
                     backgroundColor: Colors.white,
+                    side: const BorderSide(color: Colors.grey),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -196,46 +224,45 @@ class _LoginScreenState extends State<LoginScreen> {
                     size: 20,
                     color: Colors.grey,
                   ),
-                  label: Text(
+                  label: const Text(
                     'Continue with Google',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
-                      color: Colors.grey.shade700,
+                      color: Colors.grey,
                     ),
                   ),
                 ),
               ),
-              const Spacer(),
-              Center(
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Text(
-                      "Don't have an account? ",
-                      style: TextStyle(color: Colors.grey),
-                    ),
-                    TextButton(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const SignUpScreen(),
-                          ),
-                        );
-                      },
-                      child: const Text(
-                        'Sign Up',
-                        style: TextStyle(
-                          color: Colors.blue,
-                          fontWeight: FontWeight.bold,
-                        ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: TextButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const SignUpScreen(),
                       ),
+                    );
+                  },
+                  style: TextButton.styleFrom(
+                    backgroundColor: Colors.blue.shade50,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                  ],
+                  ),
+                  child: const Text(
+                    'Sign Up',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.blue,
+                    ),
+                  ),
                 ),
               ),
-              const SizedBox(height: 16),
             ],
           ),
         ),
