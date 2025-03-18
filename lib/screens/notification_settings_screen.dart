@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'profile_screen.dart';
 import 'home_screen.dart';
 
@@ -13,13 +16,96 @@ class NotificationSettingsScreen extends StatefulWidget {
 
 class _NotificationSettingsScreenState
     extends State<NotificationSettingsScreen> {
+  bool isLoading = true;
   bool generalNotification = true;
   bool sound = true;
   bool soundCall = true;
   bool vibrate = false;
 
   @override
+  void initState() {
+    super.initState();
+    _loadNotificationSettings();
+    _checkNotificationPermission();
+  }
+
+  Future<void> _checkNotificationPermission() async {
+    final status = await Permission.notification.status;
+    if (status.isDenied) {
+      // Request notification permission
+      await Permission.notification.request();
+    }
+  }
+
+  Future<void> _loadNotificationSettings() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        final doc =
+            await FirebaseFirestore.instance
+                .collection('users')
+                .doc(user.uid)
+                .collection('settings')
+                .doc('notifications')
+                .get();
+
+        if (doc.exists) {
+          final data = doc.data() as Map<String, dynamic>;
+          setState(() {
+            generalNotification = data['generalNotification'] ?? true;
+            sound = data['sound'] ?? true;
+            soundCall = data['soundCall'] ?? true;
+            vibrate = data['vibrate'] ?? false;
+          });
+        }
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error loading settings: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _saveNotificationSettings() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .collection('settings')
+            .doc('notifications')
+            .set({
+              'generalNotification': generalNotification,
+              'sound': sound,
+              'soundCall': soundCall,
+              'vibrate': vibrate,
+              'updatedAt': FieldValue.serverTimestamp(),
+            }, SetOptions(merge: true));
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error saving settings: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    if (isLoading) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -60,23 +146,23 @@ class _NotificationSettingsScreenState
             _buildNotificationOption(
               'General Notification',
               generalNotification,
-              (value) => setState(() => generalNotification = value),
+              (value) {
+                setState(() => generalNotification = value);
+                _saveNotificationSettings();
+              },
             ),
-            _buildNotificationOption(
-              'Sound',
-              sound,
-              (value) => setState(() => sound = value),
-            ),
-            _buildNotificationOption(
-              'Sound Call',
-              soundCall,
-              (value) => setState(() => soundCall = value),
-            ),
-            _buildNotificationOption(
-              'Vibrate',
-              vibrate,
-              (value) => setState(() => vibrate = value),
-            ),
+            _buildNotificationOption('Sound', sound, (value) {
+              setState(() => sound = value);
+              _saveNotificationSettings();
+            }),
+            _buildNotificationOption('Sound Call', soundCall, (value) {
+              setState(() => soundCall = value);
+              _saveNotificationSettings();
+            }),
+            _buildNotificationOption('Vibrate', vibrate, (value) {
+              setState(() => vibrate = value);
+              _saveNotificationSettings();
+            }),
           ],
         ),
       ),
@@ -102,14 +188,12 @@ class _NotificationSettingsScreenState
         ],
         onTap: (index) {
           if (index == 0) {
-            // Home tab
             Navigator.pushAndRemoveUntil(
               context,
               MaterialPageRoute(builder: (context) => const HomeScreen()),
               (route) => false,
             );
           } else if (index == 1) {
-            // Profile tab
             Navigator.push(
               context,
               MaterialPageRoute(builder: (context) => const ProfileScreen()),

@@ -19,8 +19,6 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController();
   final GoogleSignIn _googleSignIn = GoogleSignIn(
     scopes: ['email', 'https://www.googleapis.com/auth/userinfo.profile'],
-    clientId:
-        '100184804249-jqib43eral9bqk3t8vuq4fa7pjqecvo5.apps.googleusercontent.com',
     signInOption: SignInOption.standard,
   );
 
@@ -85,11 +83,15 @@ class _LoginScreenState extends State<LoginScreen> {
     } catch (error) {
       print('Google Sign-In error: $error');
       if (mounted) {
+        String errorMessage = 'Google Sign-In failed';
+        if (error.toString().contains('network_error')) {
+          errorMessage = 'Please check your internet connection';
+        } else if (error.toString().contains('sign_in_failed')) {
+          errorMessage = 'Sign in failed. Please try again';
+        }
+
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Google Sign-In failed: ${error.toString()}'),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text(errorMessage), backgroundColor: Colors.red),
         );
       }
     }

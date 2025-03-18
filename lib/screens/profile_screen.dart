@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'notification_settings_screen.dart';
 import 'home_screen.dart';
 
@@ -12,12 +14,123 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   bool isEditing = false;
-  final nameController = TextEditingController(text: 'John Doe');
+  bool isLoading = true;
+  final nameController = TextEditingController();
   final ageController = TextEditingController();
   final heightController = TextEditingController();
   final weightController = TextEditingController();
   String? selectedBloodGroup;
   String? selectedGender;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserProfile();
+  }
+
+  @override
+  void dispose() {
+    nameController.dispose();
+    ageController.dispose();
+    heightController.dispose();
+    weightController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadUserProfile() async {
+    if (!mounted) return;
+
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        setState(() {
+          isLoading = false;
+        });
+        return;
+      }
+
+      // Reset all fields first
+      nameController.text = '';
+      ageController.text = '';
+      heightController.text = '';
+      weightController.text = '';
+      selectedBloodGroup = null;
+      selectedGender = null;
+
+      // Set the name from Google account immediately
+      final displayName = user.displayName ?? user.email?.split('@')[0] ?? '';
+      nameController.text = displayName;
+
+      // Get profile data from Firestore
+      final doc =
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(user.uid)
+              .get();
+
+      if (doc.exists) {
+        final data = doc.data() as Map<String, dynamic>;
+        if (mounted) {
+          // Only update fields if they exist in Firestore
+          if (data['name'] != null) {
+            nameController.text = data['name'];
+          }
+          if (data['age'] != null) {
+            ageController.text = data['age'].toString();
+          }
+          if (data['height'] != null) {
+            heightController.text = data['height'].toString();
+          }
+          if (data['weight'] != null) {
+            weightController.text = data['weight'].toString();
+          }
+          if (data['bloodGroup'] != null) {
+            selectedBloodGroup = data['bloodGroup'];
+          }
+          if (data['gender'] != null) {
+            selectedGender = data['gender'];
+          }
+          setState(() {
+            isLoading = false;
+          });
+        }
+      } else {
+        // Create new profile with Google account data
+        final initialData = {
+          'name': displayName,
+          'email': user.email,
+          'createdAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        };
+
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .set(initialData);
+
+        if (mounted) {
+          setState(() {
+            isLoading = false;
+          });
+        }
+      }
+    } catch (e) {
+      print('Error loading profile: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error loading profile: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
+    }
+  }
 
   bool get isValidForm {
     return nameController.text.isNotEmpty &&
@@ -28,7 +141,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         selectedGender != null;
   }
 
-  void _handleSave() {
+  Future<void> _handleSave() async {
     if (!isValidForm) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -39,25 +152,44 @@ class _ProfileScreenState extends State<ProfileScreen> {
       return;
     }
 
-    setState(() {
-      isEditing = false;
-    });
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        // First update the UI to show we're not editing anymore
+        setState(() {
+          isEditing = false;
+        });
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Profile updated successfully'),
-        backgroundColor: Colors.green,
-      ),
-    );
-  }
+        // Then save to Firestore
+        await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+          'name': nameController.text,
+          'age': int.tryParse(ageController.text) ?? 0,
+          'height': double.tryParse(heightController.text) ?? 0.0,
+          'weight': double.tryParse(weightController.text) ?? 0.0,
+          'bloodGroup': selectedBloodGroup,
+          'gender': selectedGender,
+          'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
 
-  @override
-  void dispose() {
-    nameController.dispose();
-    ageController.dispose();
-    heightController.dispose();
-    weightController.dispose();
-    super.dispose();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Profile updated successfully'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error saving profile: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   @override
@@ -92,124 +224,144 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
               ),
             ),
-            Positioned(
-              right: 0,
-              child: IconButton(
-                icon: Icon(
-                  isEditing ? Icons.save : Icons.edit,
-                  color: Colors.blue,
-                  size: 24,
-                ),
-                onPressed: () {
-                  if (isEditing) {
-                    _handleSave();
-                  } else {
-                    setState(() {
-                      isEditing = true;
-                    });
-                  }
-                },
-              ),
-            ),
           ],
         ),
+        actions: [
+          IconButton(
+            icon: Icon(
+              isEditing ? Icons.save : Icons.edit,
+              color: Colors.blue,
+              size: 24,
+            ),
+            onPressed: () {
+              if (isEditing) {
+                _handleSave();
+              } else {
+                setState(() {
+                  isEditing = true;
+                });
+              }
+            },
+          ),
+          const SizedBox(width: 8),
+        ],
       ),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            const SizedBox(height: 20),
-            if (!isEditing) ...[
-              Text(
-                nameController.text,
-                style: const TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w600,
+      body:
+          isLoading
+              ? const Center(
+                child: CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
                 ),
-              ),
-            ] else ...[
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: TextField(
-                  controller: nameController,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  decoration: InputDecoration(
-                    filled: true,
-                    fillColor: Colors.blue.shade50,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
+              )
+              : SingleChildScrollView(
+                child: Column(
+                  children: [
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade50,
+                        borderRadius: const BorderRadius.only(
+                          bottomLeft: Radius.circular(30),
+                          bottomRight: Radius.circular(30),
+                        ),
+                      ),
+                      child: Column(
+                        children: [
+                          if (!isEditing)
+                            Text(
+                              nameController.text.isEmpty
+                                  ? 'Not set'
+                                  : nameController.text,
+                              style: const TextStyle(
+                                fontSize: 28,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.blue,
+                              ),
+                            )
+                          else
+                            TextField(
+                              controller: nameController,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                fontSize: 28,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.blue,
+                              ),
+                              decoration: InputDecoration(
+                                filled: true,
+                                fillColor: Colors.white,
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide.none,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
                     ),
-                  ),
+                    Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildTextField(
+                            'Age',
+                            TextInputType.number,
+                            ageController,
+                            isEditing,
+                            'Enter your age',
+                          ),
+                          const SizedBox(height: 16),
+                          _buildTextField(
+                            'Height (m)',
+                            TextInputType.number,
+                            heightController,
+                            isEditing,
+                            'Enter your height',
+                          ),
+                          const SizedBox(height: 16),
+                          _buildTextField(
+                            'Weight (kg)',
+                            TextInputType.number,
+                            weightController,
+                            isEditing,
+                            'Enter your weight',
+                          ),
+                          const SizedBox(height: 16),
+                          _buildDropdown(
+                            'Blood Group',
+                            selectedBloodGroup,
+                            ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'],
+                            (value) {
+                              if (isEditing) {
+                                setState(() {
+                                  selectedBloodGroup = value;
+                                });
+                              }
+                            },
+                            isEditing,
+                          ),
+                          const SizedBox(height: 16),
+                          _buildDropdown(
+                            'Gender',
+                            selectedGender,
+                            ['Male', 'Female', 'Other'],
+                            (value) {
+                              if (isEditing) {
+                                setState(() {
+                                  selectedGender = value;
+                                });
+                              }
+                            },
+                            isEditing,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ],
-            const SizedBox(height: 32),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildTextField(
-                    'Age',
-                    TextInputType.number,
-                    ageController,
-                    isEditing,
-                    'Enter your age',
-                  ),
-                  const SizedBox(height: 16),
-                  _buildTextField(
-                    'Height (m)',
-                    TextInputType.number,
-                    heightController,
-                    isEditing,
-                    'Enter your height',
-                  ),
-                  const SizedBox(height: 16),
-                  _buildTextField(
-                    'Weight (kg)',
-                    TextInputType.number,
-                    weightController,
-                    isEditing,
-                    'Enter your weight',
-                  ),
-                  const SizedBox(height: 16),
-                  _buildDropdown(
-                    'Blood Group',
-                    selectedBloodGroup,
-                    ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'],
-                    (value) {
-                      if (isEditing) {
-                        setState(() {
-                          selectedBloodGroup = value;
-                        });
-                      }
-                    },
-                    isEditing,
-                  ),
-                  const SizedBox(height: 16),
-                  _buildDropdown(
-                    'Gender',
-                    selectedGender,
-                    ['Male', 'Female', 'Other'],
-                    (value) {
-                      if (isEditing) {
-                        setState(() {
-                          selectedGender = value;
-                        });
-                      }
-                    },
-                    isEditing,
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
         backgroundColor: Colors.blueAccent,
@@ -254,7 +406,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     String label,
     TextInputType keyboardType,
     TextEditingController controller,
-    bool enabled,
+    bool isEditing,
     String hint,
   ) {
     return Column(
@@ -265,25 +417,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
         ),
         const SizedBox(height: 8),
-        TextField(
-          controller: controller,
-          keyboardType: keyboardType,
-          enabled: enabled,
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: Colors.blue.shade50,
-            border: OutlineInputBorder(
+        if (!isEditing)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.blue.shade50,
               borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide.none,
             ),
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 16,
+            child: Text(
+              controller.text.isEmpty ? 'Not set' : controller.text,
+              style: TextStyle(
+                fontSize: 16,
+                color: controller.text.isEmpty ? Colors.grey : Colors.black,
+              ),
             ),
-            hintText: enabled ? hint : null,
-            hintStyle: TextStyle(color: Colors.grey.shade400),
+          )
+        else
+          TextField(
+            controller: controller,
+            keyboardType: keyboardType,
+            decoration: InputDecoration(
+              hintText: hint,
+              filled: true,
+              fillColor: Colors.blue.shade50,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+            ),
           ),
-        ),
       ],
     );
   }
@@ -292,8 +454,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     String label,
     String? value,
     List<String> items,
-    void Function(String?) onChanged,
-    bool enabled,
+    ValueChanged<String?> onChanged,
+    bool isEditing,
   ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -303,28 +465,44 @@ class _ProfileScreenState extends State<ProfileScreen> {
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
         ),
         const SizedBox(height: 8),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          decoration: BoxDecoration(
-            color: Colors.blue.shade50,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              value: value,
-              isExpanded: true,
-              hint: Text(
-                'Select $label',
-                style: TextStyle(color: Colors.grey.shade600),
+        if (!isEditing)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.blue.shade50,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              value ?? 'Not set',
+              style: TextStyle(
+                fontSize: 16,
+                color: value == null ? Colors.grey : Colors.black,
               ),
-              items:
-                  items.map((String item) {
-                    return DropdownMenuItem(value: item, child: Text(item));
-                  }).toList(),
-              onChanged: enabled ? onChanged : null,
+            ),
+          )
+        else
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            decoration: BoxDecoration(
+              color: Colors.blue.shade50,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                value: value,
+                isExpanded: true,
+                items:
+                    items.map((String item) {
+                      return DropdownMenuItem<String>(
+                        value: item,
+                        child: Text(item),
+                      );
+                    }).toList(),
+                onChanged: onChanged,
+                hint: Text('Select $label'),
+              ),
             ),
           ),
-        ),
       ],
     );
   }

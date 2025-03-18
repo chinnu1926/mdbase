@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'profile_screen.dart';
 import 'general_settings_screen.dart';
 import 'notification_settings_screen.dart';
@@ -8,8 +9,19 @@ import 'home_screen.dart';
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({Key? key}) : super(key: key);
 
+  String _getUserName() {
+    final User? user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      // Use display name if available, otherwise use email
+      return user.displayName ?? user.email?.split('@')[0] ?? 'User';
+    }
+    return 'User';
+  }
+
   @override
   Widget build(BuildContext context) {
+    final userName = _getUserName();
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -34,7 +46,7 @@ class SettingsScreen extends StatelessWidget {
           // Profile Section
           Center(
             child: Text(
-              'John Doe',
+              userName,
               style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w600),
             ),
           ),
@@ -61,14 +73,6 @@ class SettingsScreen extends StatelessWidget {
                     ),
                   );
                 }),
-                const SizedBox(height: 16),
-                _buildSettingOption(
-                  'Logout',
-                  FontAwesomeIcons.rightFromBracket,
-                  () {
-                    // TODO: Implement logout
-                  },
-                ),
               ],
             ),
           ),
