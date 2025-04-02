@@ -52,6 +52,20 @@ class AuthService {
         email: email,
         password: password,
       );
+
+      // Get user profile data from Firestore
+      final userDoc =
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(userCredential.user?.uid)
+              .get();
+
+      if (userDoc.exists) {
+        final userData = userDoc.data() as Map<String, dynamic>;
+        // Update the user's display name from Firestore
+        await userCredential.user?.updateDisplayName(userData['name']);
+      }
+
       return userCredential.user;
     } catch (e) {
       print("Login Error: $e");
