@@ -15,7 +15,7 @@ class HomeScreen extends StatelessWidget {
         title: const Text(
           'SELECT AN OPTION',
           style: TextStyle(
-            color: Colors.black,
+            color: Colors.blueAccent,
             fontSize: 16,
             fontWeight: FontWeight.w500,
           ),

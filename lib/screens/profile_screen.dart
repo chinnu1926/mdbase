@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'notification_settings_screen.dart';
 import 'home_screen.dart';
 
@@ -160,8 +161,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           isEditing = false;
         });
 
-        // Then save to Firestore
-        await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+        // Create a profile data map
+        final profileData = {
           'name': nameController.text,
           'age': int.tryParse(ageController.text) ?? 0,
           'height': double.tryParse(heightController.text) ?? 0.0,
@@ -169,7 +170,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
           'bloodGroup': selectedBloodGroup,
           'gender': selectedGender,
           'updatedAt': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true));
+        };
+
+        // Save to Firestore
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .set(profileData, SetOptions(merge: true));
+
+        // Save to Firebase Storage
+        final storageRef = FirebaseStorage.instance
+            .ref()
+            .child('users')
+            .child(user.uid)
+            .child('profile.json');
+
+        // Convert profile data to JSON string
+        final jsonString = profileData.toString();
+
+        // Upload to Storage
+        await storageRef.putString(jsonString, format: PutStringFormat.raw);
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -181,6 +201,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         }
       }
     } catch (e) {
+      print('Error saving profile: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
