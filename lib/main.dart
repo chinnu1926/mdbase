@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'screens/welcome_screen.dart';
 import 'screens/home_screen.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -50,16 +51,28 @@ class _AuthWrapperState extends State<AuthWrapper> {
   }
 
   Future<void> _checkLoginStatus() async {
-    final prefs = await SharedPreferences.getInstance();
-    // Clear login state for testing
-    await prefs.clear();
-    final isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
+    try {
+      // Sign out the user when the app starts
+      await FirebaseAuth.instance.signOut();
 
-    if (mounted) {
-      setState(() {
-        _isLoggedIn = isLoggedIn;
-        _isLoading = false;
-      });
+      // Clear SharedPreferences
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.clear();
+
+      if (mounted) {
+        setState(() {
+          _isLoggedIn = false;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      print('Error checking login status: $e');
+      if (mounted) {
+        setState(() {
+          _isLoggedIn = false;
+          _isLoading = false;
+        });
+      }
     }
   }
 

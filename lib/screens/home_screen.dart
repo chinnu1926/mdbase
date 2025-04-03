@@ -6,6 +6,7 @@ import 'medical_report_analysis_screen.dart';
 import 'notification_settings_screen.dart';
 import 'symptom_analysis_screen.dart';
 import 'medication_info_screen.dart';
+import 'calendar_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -72,8 +73,11 @@ class HomeScreen extends StatelessWidget {
               },
             ),
             const SizedBox(height: 24),
-            _buildOptionButton('Calenders', FontAwesomeIcons.calendar, () {
-              // TODO: Implement calendars
+            _buildOptionButton('Calendar', FontAwesomeIcons.calendar, () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const CalendarScreen()),
+              );
             }),
             const SizedBox(height: 24),
             _buildOptionButton('Medication Info', FontAwesomeIcons.pills, () {
