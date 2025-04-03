@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -69,57 +70,98 @@ class _MedicationInfoScreenState extends State<MedicationInfoScreen> {
 
     try {
       String medicineName = _searchController.text;
+      String prompt;
+      List<Content> content;
 
       if (_image != null) {
-        // TODO: Implement image recognition to get medicine name
-        // For now, we'll use the text input if available
-        if (medicineName.isEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Please enter the medicine name')),
-          );
-          setState(() => _isLoading = false);
-          return;
-        }
+        // Convert image to bytes
+        final bytes = await _image!.readAsBytes();
+        final base64Image = base64Encode(bytes);
+
+        prompt = '''
+        Extract medicine name and details from the image. Return in this exact format without any additional text:
+
+        MEDICINE NAME
+
+        1. Usage
+        • Primary use: Brief factual description
+        • How it works: Clear mechanism explanation
+        • When to take it: Specific timing instructions
+
+        2. Side Effects
+        • Common side effects: List of common effects
+        • Serious side effects: List of serious effects
+        • When to seek help: Clear emergency indicators
+
+        3. Dosage
+        • Standard dosage: Exact amounts and frequency
+        • Maximum dosage: Clear upper limits
+        • Special instructions: Key administration notes
+
+        4. Warnings
+        • Important precautions: Key safety points
+        • Drug interactions: Specific medications to avoid
+        • Who should avoid: Clear contraindications
+
+        Image data: data:image/jpeg;base64,$base64Image
+        ''';
+
+        content = [Content.text(prompt)];
+      } else {
+        prompt = '''
+        Return information about '$medicineName' in this exact format without any additional text:
+
+        ${medicineName.toUpperCase()}
+
+        1. Usage
+        • Primary use: Brief factual description
+        • How it works: Clear mechanism explanation
+        • When to take it: Specific timing instructions
+
+        2. Side Effects
+        • Common side effects: List of common effects
+        • Serious side effects: List of serious effects
+        • When to seek help: Clear emergency indicators
+
+        3. Dosage
+        • Standard dosage: Exact amounts and frequency
+        • Maximum dosage: Clear upper limits
+        • Special instructions: Key administration notes
+
+        4. Warnings
+        • Important precautions: Key safety points
+        • Drug interactions: Specific medications to avoid
+        • Who should avoid: Clear contraindications
+        ''';
+
+        content = [Content.text(prompt)];
       }
 
-      final prompt = '''
-      Provide information about '$medicineName' in a clear format. Do not include any asterisks or markdown formatting.
-
-      Format the response as follows:
-
-      [Medicine Name] Information
-
-      1. Usage:
-      • Primary use: [Brief description]
-      • How it works: [Mechanism of action]
-      • When to take it: [Usage instructions]
-
-      2. Side Effects:
-      • Common side effects: [List common effects]
-      • Serious side effects: [List serious effects]
-      • When to seek medical help: [Emergency situations]
-
-      3. Dosage:
-      • Standard dosage: [Regular dose]
-      • Maximum dosage: [Maximum limits]
-      • Special instructions: [Important notes]
-
-      4. Warnings:
-      • Important precautions: [Key warnings]
-      • Drug interactions: [Interactions to avoid]
-      • Who should avoid it: [Contraindications]
-
-      Keep the information concise but comprehensive. Use bullet points (•) for clarity.
-      ''';
-
-      final content = [Content.text(prompt)];
       final response = await _model.generateContent(content);
 
       if (response.text != null) {
+        // Extract medicine name from the response
+        final responseText = response.text!;
+        String extractedMedicineName = medicineName;
+
+        // Try to extract medicine name from the response if image was used
+        if (_image != null) {
+          final lines = responseText.split('\n');
+          if (lines.length > 0) {
+            // Get the first non-empty line as medicine name
+            for (String line in lines) {
+              if (line.trim().isNotEmpty && !line.contains('1. Usage')) {
+                extractedMedicineName = line.trim();
+                break;
+              }
+            }
+          }
+        }
+
         setState(() {
           _medicationInfo = {
-            'medicine_name': medicineName,
-            'content': response.text!,
+            'medicine_name': extractedMedicineName,
+            'content': responseText,
             'date_added': DateTime.now(),
           };
         });
@@ -127,7 +169,7 @@ class _MedicationInfoScreenState extends State<MedicationInfoScreen> {
     } catch (e) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Error searching medication: $e')));
+      ).showSnackBar(SnackBar(content: Text('Error analyzing medication: $e')));
     } finally {
       setState(() => _isLoading = false);
     }
@@ -150,7 +192,7 @@ class _MedicationInfoScreenState extends State<MedicationInfoScreen> {
           .doc(user.uid)
           .collection('medications')
           .add({
-            ..._medicationInfo!,
+            'medicine_name': _medicationInfo!['medicine_name'],
             'is_current_medication': isCurrentMedication,
             'date_added': FieldValue.serverTimestamp(),
           });
@@ -346,6 +388,7 @@ class _MedicationInfoScreenState extends State<MedicationInfoScreen> {
   Widget _buildFormattedText(String text) {
     final List<String> lines = text.split('\n');
     List<TextSpan> spans = [];
+    bool foundHeader = false;
 
     for (String line in lines) {
       if (line.trim().isEmpty) {
@@ -353,7 +396,7 @@ class _MedicationInfoScreenState extends State<MedicationInfoScreen> {
         continue;
       }
 
-      // Format section headers (1. Usage:, 2. Side Effects:, etc.)
+      // Format section headers (1. Usage, 2. Side Effects, etc.)
       if (line.trim().startsWith(RegExp(r'\d\.'))) {
         spans.add(
           TextSpan(
@@ -390,16 +433,18 @@ class _MedicationInfoScreenState extends State<MedicationInfoScreen> {
           spans.add(TextSpan(text: '$line\n'));
         }
       }
-      // Format medicine name header
-      else if (line.contains('Information')) {
+      // Format medicine name header (first non-empty line)
+      else if (!foundHeader && !line.trim().startsWith('•')) {
+        foundHeader = true;
         spans.add(
           TextSpan(
             text: line,
             style: const TextStyle(
-              fontSize: 20,
+              fontSize: 24,
               fontWeight: FontWeight.bold,
               color: Colors.blueAccent,
               height: 2.0,
+              letterSpacing: 0.5,
             ),
           ),
         );
