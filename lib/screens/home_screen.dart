@@ -4,6 +4,7 @@ import 'settings_screen.dart';
 import 'profile_screen.dart';
 import 'medical_report_analysis_screen.dart';
 import 'notification_settings_screen.dart';
+import 'symptom_analysis_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -48,7 +49,12 @@ class HomeScreen extends StatelessWidget {
               'Symptom Analysis',
               FontAwesomeIcons.stethoscope,
               () {
-                // TODO: Implement symptom analysis
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const SymptomAnalysisScreen(),
+                  ),
+                );
               },
             ),
             const SizedBox(height: 24),
